@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zuul-config
+  namespace: zuul
+data:
+  zuul.conf: |
+    [gearman]
+    server=zuul-scheduler
+
+    [zookeeper]
+    hosts=zookeeper:2182
+    tls_cert=/var/lib/zuul/tls/client.crt
+    tls_key=/var/lib/zuul/tls/client.key
+    tls_ca=/var/lib/zuul/tls/ca.crt
+
+    [scheduler]
+    tenant_config=/etc/zuul/main.yaml
+    command_socket=/var/lib/zuul/command-socket/command.socket
+
+    [merger]
+    git_user_email=zuul@localhost
+    git_user_name=Zuul
+
+    [executor]
+    private_key_file=/var/lib/zuul/ssh/ssh-key
+    ansible_root=/var/lib/zuul/ansible-work
+
+    [keystore]
+    password=changeit
+
+    [web]
+    listen_address=0.0.0.0
+    port=9000
+
+    [connection "github"]
+    driver=github
+    app_id=2312133
+    app_key=/var/lib/zuul/github.pem
+    webhook_token=SECRET321
+
+    [database]
+    dburi=sqlite:///var/lib/zuul/db/zuul.db
+
+  main.yaml: |
+    - tenant:
+        name: main
+        source:
+          github:
+            config-projects:
+              - kravch3nko/spike-zuul-mq
+            untrusted-projects:
+              []

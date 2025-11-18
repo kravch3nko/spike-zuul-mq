@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: zuul
+spec:
+  ports:
+    - port: 2182
+      name: secure-client
+  selector:
+    app: zookeeper
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: zuul
+spec:
+  serviceName: zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: zookeeper:3.8
+          ports:
+            - containerPort: 2182
+          env:
+            - name: ZOO_STANDALONE_ENABLED
+              value: "true"
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Copy certificates to writable location
+              cp /tls/server.p12 /data/server.p12
+              cp /tls/ca.crt /data/cacert.pem
+              # Configure Zookeeper for TLS (as per Zuul docs)
+              # Wait for entrypoint to create base config
+              /docker-entrypoint.sh zkServer.sh start &
+              sleep 3
+              # Add TLS configuration to zoo.cfg
+              if [ -f /conf/zoo.cfg ]; then
+                # Remove clientPort to disable plaintext (as per docs)
+                sed -i '/^clientPort=/d' /conf/zoo.cfg
+                # Add TLS configuration (using PEM for truststore as per Zuul docs)
+                echo "serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory" >> /conf/zoo.cfg
+                echo "secureClientPort=2182" >> /conf/zoo.cfg
+                echo "ssl.keyStore.location=/data/server.p12" >> /conf/zoo.cfg
+                echo "ssl.keyStore.password=changeit" >> /conf/zoo.cfg
+                echo "ssl.trustStore.location=/data/cacert.pem" >> /conf/zoo.cfg
+              fi
+              # Stop initial start and restart with TLS config
+              pkill -f QuorumPeerMain || true
+              wait
+              exec /docker-entrypoint.sh zkServer.sh start-foreground
+      volumes:
+        - name: tls
+          secret:
+            secretName: zookeeper-tls
+

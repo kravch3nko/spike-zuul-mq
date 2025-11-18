@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zuul-scheduler
+  namespace: zuul
+spec:
+  ports:
+    - port: 4730
+  selector:
+    app: zuul-scheduler
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zuul-scheduler
+  namespace: zuul
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zuul-scheduler
+  template:
+    metadata:
+      labels:
+        app: zuul-scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: zuul/zuul-scheduler:latest
+          env:
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: zuul-secrets
+                  key: github-app-id
+            - name: GITHUB_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: zuul-secrets
+                  key: github-webhook-token
+          volumeMounts:
+            - name: config
+              mountPath: /etc/zuul
+            - name: secrets
+              mountPath: /var/lib/zuul
+            - name: database
+              mountPath: /var/lib/zuul/db
+            - name: command-socket
+              mountPath: /var/lib/zuul/command-socket
+            - name: zookeeper-tls
+              mountPath: /var/lib/zuul/tls
+      volumes:
+        - name: config
+          configMap:
+            name: zuul-config
+        - name: secrets
+          secret:
+            secretName: zuul-secrets
+            items:
+              - key: ssh-private-key
+                path: ssh/ssh-key
+                mode: 0600
+              - key: github-app-key
+                path: github.pem
+                mode: 0600
+        - name: database
+          emptyDir: {}
+        - name: command-socket
+          emptyDir: {}
+        - name: zookeeper-tls
+          secret:
+            secretName: zookeeper-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+              - key: client.crt
+                path: client.crt
+              - key: client.key
+                path: client.key
+

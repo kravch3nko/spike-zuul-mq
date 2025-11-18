@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zuul-executor
+  namespace: zuul
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zuul-executor
+  template:
+    metadata:
+      labels:
+        app: zuul-executor
+    spec:
+      initContainers:
+        - name: prepare-ansible
+          image: busybox:latest
+          command: ['sh', '-c', 'mkdir -p /var/lib/zuul/ansible-work; chmod 777 /var/lib/zuul/ansible-work']
+          volumeMounts:
+            - name: ansible
+              mountPath: /var/lib/zuul/ansible-work
+      containers:
+        - name: executor
+          image: zuul/zuul-executor:latest
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/zuul
+            - name: secrets-ssh
+              mountPath: /var/lib/zuul/ssh
+            - name: secrets-github
+              mountPath: /var/lib/zuul/github.pem
+              subPath: github-app-key
+              readOnly: true
+            - name: builds
+              mountPath: /var/lib/zuul/builds
+            - name: git-work
+              mountPath: /var/lib/zuul/executor-git
+            - name: ansible
+              mountPath: /var/lib/zuul/ansible-work
+            - name: zookeeper-tls
+              mountPath: /var/lib/zuul/tls
+      volumes:
+        - name: config
+          configMap:
+            name: zuul-config
+        - name: secrets-ssh
+          secret:
+            secretName: zuul-secrets
+            items:
+              - key: ssh-private-key
+                path: ssh-key
+                mode: 0600
+        - name: secrets-github
+          secret:
+            secretName: zuul-secrets
+            items:
+              - key: github-app-key
+                path: github-app-key
+                mode: 0600
+        - name: builds
+          emptyDir: {}
+        - name: git-work
+          emptyDir: {}
+        - name: ansible
+          emptyDir: {}
+        - name: zookeeper-tls
+          secret:
+            secretName: zookeeper-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+              - key: client.crt
+                path: client.crt
+              - key: client.key
+                path: client.key
+

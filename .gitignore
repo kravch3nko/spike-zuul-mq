@@ -1,0 +1,21 @@
+# Generated files (contain secrets or runtime data)
+k8s/02-secrets.yaml
+k8s/09-pause-checker.yaml
+
+# Key files (should never be committed)
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+*_rsa
+*_rsa.pub
+
+# Config files with actual secrets
+zuul-config.yaml.local
+*.local
+
+# Temporary files
+*.bak
+*.tmp
+/tmp/
+

@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pause-checker-script
+  namespace: zuul
+data:
+  check-pause.sh: |
+    #!/bin/sh
+    # Check for pause-merges issues using same GitHub App credentials as Zuul
+
+    set -e
+
+    # GitHub App credentials from secrets (same as Zuul)
+    APP_ID="${GITHUB_APP_ID}"
+    INSTALLATION_ID="${GITHUB_INSTALLATION_ID}"
+
+    # Generate JWT for GitHub App authentication
+    generate_jwt() {
+        local header=$(echo -n '{"alg":"RS256","typ":"JWT"}' | base64 | tr -d '=' | tr '/+' '_-')
+        local now=$(date +%s)
+        local payload=$(echo -n "{\"iat\":$now,\"exp\":$((now+600)),\"iss\":\"$APP_ID\"}" | base64 | tr -d '=' | tr '/+' '_-')
+
+        local header_payload="${header}.${payload}"
+        local signature=$(echo -n "$header_payload" | openssl dgst -sha256 -sign /github-app-key -binary | base64 | tr -d '=' | tr '/+' '_-')
+
+        echo "${header_payload}.${signature}"
+    }
+
+    # Get installation token (uses same installation_id as Zuul)
+    get_installation_token() {
+        local jwt=$(generate_jwt)
+        curl -s -X POST \
+          -H "Authorization: Bearer $jwt" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/app/installations/$INSTALLATION_ID/access_tokens" \
+          | jq -r '.token' 2>/dev/null || echo ""
+    }
+
+    LABEL="pause-merges"
+    TOKEN=$(get_installation_token)
+
+    if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+        echo "ERROR: Failed to get GitHub App installation token"
+        exit 1
+    fi
+
+    echo "Checking for pause issues using GitHub App credentials (same as Zuul)..."
+
+    SHOULD_PAUSE=false
+    # REPO_CHECKS_PLACEHOLDER
+
+    # Use kubectl with service account token (automatically mounted by Kubernetes)
+    KUBE_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || echo "")
+    KUBE_SERVER="https://${KUBERNETES_SERVICE_HOST:-kubernetes.default.svc}:${KUBERNETES_SERVICE_PORT:-443}"
+    KUBE_CA="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+    if [ "$SHOULD_PAUSE" = "true" ]; then
+      echo "PAUSE: Scaling down scheduler due to pause issues"
+      kubectl --server="$KUBE_SERVER" --token="$KUBE_TOKEN" --certificate-authority="$KUBE_CA" \
+        scale deployment zuul-scheduler -n zuul --replicas=0
+    else
+      echo "ACTIVE: No pause issues found, ensuring scheduler is running"
+      kubectl --server="$KUBE_SERVER" --token="$KUBE_TOKEN" --certificate-authority="$KUBE_CA" \
+        scale deployment zuul-scheduler -n zuul --replicas=1
+    fi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pause-checker
+  namespace: zuul
+spec:
+  schedule: "*/5 * * * *"  # Check every 5 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: pause-checker
+          containers:
+            - name: checker
+              image: alpine:latest
+              env:
+                - name: GITHUB_APP_ID
+                  value: "${GITHUB_APP_ID}"
+                - name: GITHUB_INSTALLATION_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: zuul-secrets
+                      key: github-installation-id
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  apk add --no-cache curl jq openssl kubectl >/dev/null 2>&1
+                  /scripts/check-pause.sh
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                - name: github-key
+                  mountPath: /github-app-key
+                  subPath: github-app-key
+          volumes:
+            - name: script
+              configMap:
+                name: pause-checker-script
+                defaultMode: 0755
+            - name: github-key
+              secret:
+                secretName: zuul-secrets
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pause-checker
+  namespace: zuul
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pause-checker
+  namespace: zuul
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/scale"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pause-checker
+  namespace: zuul
+subjects:
+  - kind: ServiceAccount
+    name: pause-checker
+roleRef:
+  kind: Role
+  name: pause-checker
+  apiGroup: rbac.authorization.k8s.io
+

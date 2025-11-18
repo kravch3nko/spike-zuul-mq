@@ -1,0 +1,78 @@
+- pipeline:
+    name: gate
+    description: Merge queue - waits for external checks after rebase
+    manager: dependent
+    post-review: true
+
+    # Disable speculative merges
+    window: 0
+    window-floor: 0
+    window-increase-factor: 0
+
+    require:
+      github:
+        # Require approval and merge label
+        review:
+          - permission: write
+            type: approved
+        label: merge
+        open: true
+        current-patchset: true
+        # Require all external checks to pass
+        status:
+          - context: "^.*$"  # Match all check contexts
+            state: success
+
+    reject:
+      github:
+        label:
+          - do-not-merge
+          - wip
+        # Reject if any checks failed
+        status:
+          - context: "^.*$"
+            state: failure
+
+    trigger:
+      github:
+        # Enter queue when PR is approved and labeled
+        - event: pull_request
+          action: labeled
+          label: merge
+        - event: pull_request_review
+          action: submitted
+          state: approved
+        # Also trigger when external checks complete
+        - event: status
+          state: success
+        - event: check_run
+          action: completed
+          status: success
+
+    start:
+      github:
+        check: in_progress
+        comment: true
+        comment-body: |
+          This change has entered the merge queue.
+
+          Waiting for external checks to pass after rebase...
+
+    success:
+      github:
+        check: success
+        comment: true
+        comment-body: |
+          ✅ All checks passed! Change merged successfully.
+        merge: true
+        merge-mode: squash-merge
+
+    failure:
+      github:
+        check: failure
+        comment: true
+        comment-body: |
+          ❌ Merge failed - external checks did not pass.
+
+# Removed check pipeline - only using gate for merge queue
+
