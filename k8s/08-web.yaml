@@ -1,55 +1,42 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: zuul-scheduler
+  name: zuul-web
   namespace: zuul
 spec:
   ports:
-    - name: gearman
-      port: 4730
-      targetPort: 4730
-    - name: web
-      port: 9000
+    - port: 9000
       targetPort: 9000
   selector:
-    app: zuul-scheduler
+    app: zuul-web
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: zuul-scheduler
+  name: zuul-web
   namespace: zuul
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: zuul-scheduler
+      app: zuul-web
   template:
     metadata:
       labels:
-        app: zuul-scheduler
+        app: zuul-web
     spec:
       containers:
-        - name: scheduler
-          image: zuul/zuul-scheduler:latest
+        - name: web
+          image: zuul/zuul-web:latest
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "200m"
+              memory: "256Mi"
+              cpu: "100m"
             limits:
-              memory: "2Gi"
-              cpu: "1000m"
-          env:
-            - name: GITHUB_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: zuul-secrets
-                  key: github-app-id
-            - name: GITHUB_WEBHOOK_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: zuul-secrets
-                  key: github-webhook-token
+              memory: "1Gi"
+              cpu: "500m"
+          ports:
+            - containerPort: 9000
           volumeMounts:
             - name: config
               mountPath: /etc/zuul
@@ -69,9 +56,6 @@ spec:
           secret:
             secretName: zuul-secrets
             items:
-              - key: ssh-private-key
-                path: ssh/ssh-key
-                mode: 0600
               - key: github-app-key
                 path: github.pem
                 mode: 0600

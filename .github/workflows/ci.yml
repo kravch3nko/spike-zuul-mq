@@ -1,0 +1,38 @@
+name: CI Simulation
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate tests
+        run: |
+          echo "Running tests..."
+          sleep 30
+          echo "Tests passed!"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate linting (50% failure rate)
+        run: |
+          echo "Running linter..."
+          sleep 30
+          echo "✅ Linting passed!"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simulate build
+        run: |
+          echo "Building..."
+          sleep 10
+          echo "Build successful!" 

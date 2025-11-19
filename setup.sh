@@ -202,7 +202,7 @@ data:
     webhook_token=$WEBHOOK_TOKEN
 
     [database]
-    dburi=sqlite:///var/lib/zuul/db/zuul.db
+    se
 
   main.yaml: |
     - tenant:

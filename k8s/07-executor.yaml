@@ -25,6 +25,13 @@ spec:
           image: zuul/zuul-executor:latest
           securityContext:
             privileged: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
           volumeMounts:
             - name: config
               mountPath: /etc/zuul

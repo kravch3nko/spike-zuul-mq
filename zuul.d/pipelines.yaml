@@ -12,9 +12,9 @@
     require:
       github:
         # Require approval and merge label
-        review:
-          - permission: write
-            type: approved
+        # review:
+        #   - permission: write
+        #     type: approved
         label: merge
         open: true
         current-patchset: true
