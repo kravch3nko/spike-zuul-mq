@@ -324,3 +324,5 @@ minikube stop
 - Add `alias k="kubectl"` to your shell for faster commands
 - Keep ngrok running in a separate terminal tab
 - Test with a small test repository first
+
+sadjfkljasdlkfjlaksdjf
