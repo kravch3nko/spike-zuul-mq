@@ -19,5 +19,3 @@ echo "# Follow executor logs: kubectl logs -n zuul -l app=zuul-executor -f"
 echo "# Follow zookeeper logs: kubectl logs -n zuul zookeeper-0 -f"
 echo "# Check for errors: kubectl logs -n zuul -l app=zuul-scheduler --tail=100 | grep -i error"
 
-
-echo ""
