@@ -3,6 +3,7 @@
 
 echo "1234567890"
 echo "234567890"
+echo "234567890"
 echo "=== Pod Status ==="
 kubectl get pods -n zuul
 
