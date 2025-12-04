@@ -32,5 +32,4 @@ echo "✅ Restart complete! Monitor with:"
 echo "   kubectl get pods -n zuul -w"
 echo "   ./check-logs.sh"
 
-echo "99999999999"
-echo "11111111111
+echo "213323432433"
