@@ -1,6 +1,9 @@
 #!/bin/bash
 # Quick script to check logs for Zuul services
 
+echo "1234567890"
+echo "234567890"
+echo "234567890"
 echo "=== Pod Status ==="
 kubectl get pods -n zuul
 
